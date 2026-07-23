@@ -60,11 +60,18 @@ req = urllib.request.Request(
 
 try:
     resp = urllib.request.urlopen(req, context=ctx)
-    data = json.loads(resp.read())
+    raw = resp.read().decode("utf-8")
+    print(f"[DEBUG] STS raw response: {raw}")
+    data = json.loads(raw)
 except Exception as e:
     print(f"[!] STS call failed: {e}")
     if isinstance(e, urllib.error.HTTPError):
         print(f"    Response body: {e.read().decode()}")
+    exit(1)
+
+if "Error" in data.get("Response", {}):
+    err = data["Response"]["Error"]
+    print(f"[!] STS API error: {err.get('Code')} - {err.get('Message')}")
     exit(1)
 
 creds = data["Response"]["Credentials"]
