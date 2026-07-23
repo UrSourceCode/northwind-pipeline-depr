@@ -8,6 +8,7 @@ in $GITHUB_ENV for use by subsequent workflow steps.
 import os
 import json
 import time
+import random
 import urllib.request
 import urllib.parse
 import ssl
@@ -41,6 +42,9 @@ print("[+] Obtained GitHub OIDC token")
 params = urllib.parse.urlencode({
     "Action": "AssumeRoleWithWebIdentity",
     "Version": "2018-08-13",
+    "Region": REGION,
+    "Timestamp": str(int(time.time())),
+    "Nonce": str(random.randint(10000, 99999)),
     "ProviderId": OIDC_PROVIDER,
     "RoleArn": ROLE_ARN,
     "WebIdentityToken": oidc_token,
