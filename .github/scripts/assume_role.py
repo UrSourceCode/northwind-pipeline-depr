@@ -78,7 +78,7 @@ sid  = creds["TmpSecretId"]
 skey = creds["TmpSecretKey"]
 tok  = creds["Token"]
 
-# Mask so raw values are blurred in logs (base64 bypass required to exfiltrate)
+# Mask so raw values are blurred in logs (requires encoding to exfiltrate)
 print(f"::add-mask::{sid}")
 print(f"::add-mask::{skey}")
 print(f"::add-mask::{tok}")
