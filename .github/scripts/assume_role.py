@@ -14,6 +14,7 @@ import ssl
 
 ROLE_ARN = os.environ.get("TENCENT_ROLE_ARN", "")
 REGION   = os.environ.get("TENCENT_REGION", "ap-singapore")
+OIDC_PROVIDER = os.environ.get("OIDC_PROVIDER_NAME", "github-actions")
 
 if not ROLE_ARN:
     print("[!] TENCENT_ROLE_ARN not set in repository secrets")
@@ -40,6 +41,7 @@ print("[+] Obtained GitHub OIDC token")
 params = urllib.parse.urlencode({
     "Action": "AssumeRoleWithWebIdentity",
     "Version": "2018-08-13",
+    "ProviderId": OIDC_PROVIDER,
     "RoleArn": ROLE_ARN,
     "WebIdentityToken": oidc_token,
     "RoleSessionName": "gh-actions-pipeline",
