@@ -1,28 +1,23 @@
-"""
-Exchange a GitHub Actions OIDC token for Tencent Cloud CAM
-temporary credentials via STS AssumeRoleWithWebIdentity.
-
-Writes credentials to $RUNNER_TEMP/pipeline.creds for later sourcing.
-"""
-import os
 import json
-import time
+import os
 import random
-import urllib.request
-import urllib.parse
 import ssl
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
 
 ROLE_ARN = os.environ.get("TENCENT_ROLE_ARN", "")
-REGION   = os.environ.get("TENCENT_REGION", "ap-singapore")
+REGION = os.environ.get("TENCENT_REGION", "ap-singapore")
 OIDC_PROVIDER = os.environ.get("OIDC_PROVIDER_NAME", "github-actions")
 
 if not ROLE_ARN:
     print("[!] TENCENT_ROLE_ARN not set in repository secrets")
-    exit(1)
+    sys.exit(1)
 
-ctx = ssl.create_default_context()
-
-# ── Step 1: request OIDC token from GitHub ──
+context = ssl.create_default_context()
 token_url = (
     os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
     + "&audience=sts.tencentcloudapi.com"
@@ -32,12 +27,11 @@ headers = {
     "Accept": "application/json; api-version=2.0",
 }
 
-req = urllib.request.Request(token_url, headers=headers)
-resp = urllib.request.urlopen(req, context=ctx)
-oidc_token = json.loads(resp.read())["value"]
+request = urllib.request.Request(token_url, headers=headers)
+response = urllib.request.urlopen(request, context=context)
+oidc_token = json.loads(response.read())["value"]
 print("[+] Obtained GitHub OIDC token")
 
-# ── Step 2: call STS AssumeRoleWithWebIdentity ──
 params = urllib.parse.urlencode({
     "Action": "AssumeRoleWithWebIdentity",
     "Version": "2018-08-13",
@@ -52,41 +46,38 @@ params = urllib.parse.urlencode({
 })
 sts_url = f"https://sts.tencentcloudapi.com/?{params}"
 
-req = urllib.request.Request(sts_url)
-req.add_header("Host", "sts.tencentcloudapi.com")
+request = urllib.request.Request(sts_url, headers={"Host": "sts.tencentcloudapi.com"})
 
 try:
-    resp = urllib.request.urlopen(req, context=ctx)
-    raw = resp.read().decode("utf-8")
-    data = json.loads(raw)
-except Exception as e:
-    print(f"[!] STS call failed: {e}")
-    if isinstance(e, urllib.error.HTTPError):
-        print(f"    Response body: {e.read().decode()}")
-    exit(1)
+    response = urllib.request.urlopen(request, context=context)
+    data = json.loads(response.read().decode("utf-8"))
+except Exception as error:
+    print(f"[!] STS call failed: {error}")
+    if isinstance(error, urllib.error.HTTPError):
+        print(f"    Response body: {error.read().decode()}")
+    sys.exit(1)
 
 if "Error" in data.get("Response", {}):
-    err = data["Response"]["Error"]
-    print(f"[!] STS API error: {err.get('Code')} - {err.get('Message')}")
-    exit(1)
+    error = data["Response"]["Error"]
+    print(f"[!] STS API error: {error.get('Code')} - {error.get('Message')}")
+    sys.exit(1)
 
-creds = data["Response"]["Credentials"]
+credentials = data["Response"]["Credentials"]
+secret_id = credentials["TmpSecretId"]
+secret_key = credentials["TmpSecretKey"]
+token = credentials["Token"]
+
 print("[+] Obtained temporary CAM credentials")
+print(f"::add-mask::{secret_id}")
+print(f"::add-mask::{secret_key}")
+print(f"::add-mask::{token}")
 
-# ── Step 3: write to temp file + mask values in logs ──
-sid  = creds["TmpSecretId"]
-skey = creds["TmpSecretKey"]
-tok  = creds["Token"]
+credentials_file = os.path.join(
+    os.environ.get("RUNNER_TEMP", "/tmp"), "pipeline.creds"
+)
+with open(credentials_file, "w", encoding="utf-8") as file:
+    file.write(f"TENCENT_SECRET_ID={secret_id}\n")
+    file.write(f"TENCENT_SECRET_KEY={secret_key}\n")
+    file.write(f"TENCENT_TOKEN={token}\n")
 
-# Mask so raw values are blurred in logs (requires encoding to exfiltrate)
-print(f"::add-mask::{sid}")
-print(f"::add-mask::{skey}")
-print(f"::add-mask::{tok}")
-
-creds_file = os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "pipeline.creds")
-with open(creds_file, "w") as f:
-    f.write(f'TENCENT_SECRET_ID={sid}\n')
-    f.write(f'TENCENT_SECRET_KEY={skey}\n')
-    f.write(f'TENCENT_TOKEN={tok}\n')
-
-print(f"[+] Credentials written to {creds_file} (masked in logs)")
+print(f"[+] Credentials written to {credentials_file} (masked in logs)")
