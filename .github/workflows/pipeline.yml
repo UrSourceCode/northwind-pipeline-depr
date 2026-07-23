@@ -28,9 +28,10 @@ jobs:
 
       - name: Build and push Docker image to TCR
         run: |
+          source $RUNNER_TEMP/pipeline.creds
           IMAGE="ccr.ccs.tencentyun.com/northwind-assets/app:${{ github.event.inputs.image_tag }}"
           echo "Building image: ${IMAGE}"
-          docker build -t $IMAGE .                     # <-- unquoted variable (injection point)
+          docker build -t $IMAGE .
           echo "${TENCENT_SECRET_KEY}" | docker login ccr.ccs.tencentyun.com \
             --username="${TENCENT_SECRET_ID}" \
             --password-stdin || true

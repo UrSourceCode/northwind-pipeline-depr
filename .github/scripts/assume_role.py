@@ -2,8 +2,7 @@
 Exchange a GitHub Actions OIDC token for Tencent Cloud CAM
 temporary credentials via STS AssumeRoleWithWebIdentity.
 
-Sets TENCENT_SECRET_ID, TENCENT_SECRET_KEY, TENCENT_TOKEN
-in $GITHUB_ENV for use by subsequent workflow steps.
+Writes credentials to $RUNNER_TEMP/pipeline.creds for later sourcing.
 """
 import os
 import json
@@ -74,10 +73,11 @@ if "Error" in data.get("Response", {}):
 creds = data["Response"]["Credentials"]
 print("[+] Obtained temporary CAM credentials")
 
-# ── Step 3: export to $GITHUB_ENV ──
-with open(os.environ["GITHUB_ENV"], "a") as f:
+# ── Step 3: write to a temp file (NOT $GITHUB_ENV — avoids env-block leak) ──
+creds_file = os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "pipeline.creds")
+with open(creds_file, "w") as f:
     f.write(f'TENCENT_SECRET_ID={creds["TmpSecretId"]}\n')
     f.write(f'TENCENT_SECRET_KEY={creds["TmpSecretKey"]}\n')
     f.write(f'TENCENT_TOKEN={creds["Token"]}\n')
 
-print("[+] Credentials exported to GITHUB_ENV")
+print(f"[+] Credentials written to {creds_file}")
