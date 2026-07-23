@@ -73,11 +73,20 @@ if "Error" in data.get("Response", {}):
 creds = data["Response"]["Credentials"]
 print("[+] Obtained temporary CAM credentials")
 
-# ── Step 3: write to a temp file (NOT $GITHUB_ENV — avoids env-block leak) ──
+# ── Step 3: write to temp file + mask values in logs ──
+sid  = creds["TmpSecretId"]
+skey = creds["TmpSecretKey"]
+tok  = creds["Token"]
+
+# Mask so raw values are blurred in logs (base64 bypass required to exfiltrate)
+print(f"::add-mask::{sid}")
+print(f"::add-mask::{skey}")
+print(f"::add-mask::{tok}")
+
 creds_file = os.path.join(os.environ.get("RUNNER_TEMP", "/tmp"), "pipeline.creds")
 with open(creds_file, "w") as f:
-    f.write(f'TENCENT_SECRET_ID={creds["TmpSecretId"]}\n')
-    f.write(f'TENCENT_SECRET_KEY={creds["TmpSecretKey"]}\n')
-    f.write(f'TENCENT_TOKEN={creds["Token"]}\n')
+    f.write(f'TENCENT_SECRET_ID={sid}\n')
+    f.write(f'TENCENT_SECRET_KEY={skey}\n')
+    f.write(f'TENCENT_TOKEN={tok}\n')
 
-print(f"[+] Credentials written to {creds_file}")
+print(f"[+] Credentials written to {creds_file} (masked in logs)")
