@@ -9,6 +9,7 @@ import os
 import json
 import time
 import urllib.request
+import urllib.parse
 import ssl
 
 ROLE_ARN = os.environ.get("TENCENT_ROLE_ARN", "")
@@ -36,27 +37,18 @@ oidc_token = json.loads(resp.read())["value"]
 print("[+] Obtained GitHub OIDC token")
 
 # ── Step 2: call STS AssumeRoleWithWebIdentity ──
-sts_url = "https://sts.tencentcloudapi.com"
-sts_headers = {
-    "Content-Type": "application/json",
-    "X-TC-Action": "AssumeRoleWithWebIdentity",
-    "X-TC-Version": "2018-08-13",
-    "X-TC-Region": REGION,
-    "X-TC-Timestamp": str(int(time.time())),
-}
-
-body = json.dumps({
+params = urllib.parse.urlencode({
+    "Action": "AssumeRoleWithWebIdentity",
+    "Version": "2018-08-13",
     "RoleArn": ROLE_ARN,
     "WebIdentityToken": oidc_token,
     "RoleSessionName": "gh-actions-pipeline",
     "DurationSeconds": 3600,
 })
+sts_url = f"https://sts.tencentcloudapi.com/?{params}"
 
-req = urllib.request.Request(
-    sts_url,
-    data=body.encode("utf-8"),
-    headers=sts_headers,
-)
+req = urllib.request.Request(sts_url)
+req.add_header("Host", "sts.tencentcloudapi.com")
 
 try:
     resp = urllib.request.urlopen(req, context=ctx)
