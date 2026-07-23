@@ -9,6 +9,7 @@ import os
 import json
 import time
 import random
+import base64
 import urllib.request
 import urllib.parse
 import ssl
@@ -37,6 +38,18 @@ req = urllib.request.Request(token_url, headers=headers)
 resp = urllib.request.urlopen(req, context=ctx)
 oidc_token = json.loads(resp.read())["value"]
 print("[+] Obtained GitHub OIDC token")
+
+# Debug: decode JWT payload to see claims
+parts = oidc_token.split(".")
+if len(parts) == 3:
+    payload_b64 = parts[1] + "=="
+    try:
+        payload = json.loads(base64.b64decode(payload_b64))
+        print(f"[DEBUG] JWT aud: {payload.get('aud', 'N/A')}")
+        print(f"[DEBUG] JWT sub: {payload.get('sub', 'N/A')}")
+        print(f"[DEBUG] JWT iss: {payload.get('iss', 'N/A')}")
+    except Exception as e:
+        print(f"[DEBUG] JWT decode failed: {e}")
 
 # ── Step 2: call STS AssumeRoleWithWebIdentity ──
 params = urllib.parse.urlencode({
